@@ -33,23 +33,17 @@ tip_percentage.add_triangular_membership_function(GENEROUS, 18, 24, 30)
 
 
 # Rules
-def rule1(
-    service_level: FuzzyVariable, food_quality: FuzzyVariable
-) -> tuple[str, FuzzyValue]:
+def rule1(service_level: FuzzyVariable, food_quality: FuzzyVariable) -> tuple[str, FuzzyValue]:
     result = service_level.is_(POOR) | food_quality.is_(BAD)
     return CHEAP, result
 
 
-def rule2(
-    service_level: FuzzyVariable, food_quality: FuzzyVariable
-) -> tuple[str, FuzzyValue]:
+def rule2(service_level: FuzzyVariable, food_quality: FuzzyVariable) -> tuple[str, FuzzyValue]:
     result = service_level.is_(GOOD)
     return AVERAGE, result
 
 
-def rule3(
-    service_level: FuzzyVariable, food_quality: FuzzyVariable
-) -> tuple[str, FuzzyValue]:
+def rule3(service_level: FuzzyVariable, food_quality: FuzzyVariable) -> tuple[str, FuzzyValue]:
     result = service_level.is_(EXCELLENT) | food_quality.is_(DELICIOUS)
     return GENEROUS, result
 
@@ -60,5 +54,11 @@ fuzzy_logic = FuzzyLogic(
     output=tip_percentage,
     rules=[rule1, rule2, rule3],
 )
-result = fuzzy_logic.run(service_level=30, food_quality=80)
+
+result = fuzzy_logic.predict(service_level=30, food_quality=80)
 print(result)
+
+result_cat = fuzzy_logic.predict_categorical(service_level=30, food_quality=80)
+print(result_cat)
+
+print(tip_percentage.fuzzify(result).get_maximum_membership())
