@@ -57,10 +57,10 @@ class FuzzyVariable:
         return list(self._membership_functions.keys())
 
     def __str__(self) -> str:
-        return f"FuzzyVariable<{self.name}, {self.min_val}, {self.max_val}>: {self._fuzzy_values}>"
+        return f"FuzzyVariable<{self.name}, {self.min_val}, {self.max_val}>"
 
     def __repr__(self) -> str:
-        return str(self)
+        return f"{self}: {self._fuzzy_values}"
 
     def __getitem__(self, category: str) -> FuzzyValue:
         return self.is_(category)
@@ -130,13 +130,13 @@ class FuzzyVariable:
         b: float,
         c: float,
     ) -> None:
-        """
+        r"""
         Add a triangular membership function to the variable.
           ▲
-        1-│          ^                  
-          │         / \                   
-          │        /   \                 
-          │       /     \                 
+        1-│          ^
+          │         / \
+          │        /   \
+          │       /     \
         0-└──────|───|───|───────────────────►
                  a   b   c
         """
