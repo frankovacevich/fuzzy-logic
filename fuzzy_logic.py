@@ -3,6 +3,7 @@ from typing import Callable, Generator, Optional
 
 
 MembershipFunction = Callable[[float | np.ndarray], "FuzzyValue"]
+FuzzyTuple = tuple[str, "FuzzyValue"]
 
 
 class FuzzyValue:
@@ -101,6 +102,9 @@ class FuzzyVariable:
     def is_not(self, category: str) -> "FuzzyValue":
         return ~self.is_(category)
 
+    def get_max_membership_category(self) -> str:
+        return max(self._fuzzy_values, key=lambda v: self._fuzzy_values[v].degree)  # type: ignore
+
     def add_membership_function(self, category: str, func: MembershipFunction) -> None:
         if category in self._membership_functions:
             raise ValueError(f"Membership function for '{category}' already defined.")
@@ -126,21 +130,10 @@ class FuzzyVariable:
         self.add_membership_function(category, function)
 
 
-class FuzzyRule:
-    name: str
-    explanation: str
-
-    def __call__(self, **kwargs) -> tuple[str, FuzzyValue]:
-        raise NotImplementedError
-
-
 class FuzzyLogic:
 
     def __init__(
-        self,
-        inputs: list[FuzzyVariable],
-        output: FuzzyVariable,
-        rules: list[Callable],
+        self, inputs: list[FuzzyVariable], output: FuzzyVariable, rules: list[Callable]
     ) -> None:
         self.inputs = inputs
         self.output = output
@@ -190,4 +183,4 @@ class FuzzyLogic:
         Use max membership degree to predict the output category.
         """
         results = self.run_rules(**crisp_values)
-        return max(results, key=lambda v: results[v].degree)  # type: ignore
+        return results.get_max_membership_category()
