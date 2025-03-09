@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Callable, Optional
+from typing import Callable, Generator, Optional
 
 
 MembershipFunction = Callable[[float | np.ndarray], "FuzzyValue"]
@@ -36,18 +36,6 @@ class FuzzyValue:
         """
         return FuzzyValue(1 - self.degree)
 
-    def clip(self, max_val: float) -> "FuzzyValue":
-        """
-        Clip the degree of the fuzzy value to a maximum value.
-        """
-        return FuzzyValue(np.minimum(self.degree, max_val))
-
-    def maximum(self, other: "FuzzyValue") -> "FuzzyValue":
-        """
-        Combine two fuzzy values by taking the maximum degree at each point (same as OR).
-        """
-        return FuzzyValue(np.maximum(self.degree, other.degree))
-
 
 class FuzzyVariable:
 
@@ -59,6 +47,10 @@ class FuzzyVariable:
         self._membership_functions: dict[str, MembershipFunction] = {}
         self._fuzzy_values: dict[str, FuzzyValue] = {}
 
+    @staticmethod
+    def create(name: str, min_val: float, max_val: float) -> "FuzzyVariable":
+        return FuzzyVariable(name, min_val, max_val)
+
     @property
     def categories(self) -> list[str]:
         return list(self._membership_functions.keys())
@@ -69,12 +61,28 @@ class FuzzyVariable:
     def __repr__(self) -> str:
         return str(self)
 
+    def __getitem__(self, category: str) -> FuzzyValue:
+        return self.is_(category)
+
+    def __setitem__(self, category: str, value: FuzzyValue) -> None:
+        self._fuzzy_values[category] = value
+
+    def __iter__(self) -> Generator[str, None, None]:
+        yield from self._fuzzy_values
+
     def clone(self) -> "FuzzyVariable":
+        """
+        Create a copy of the variable with the same membership functions and empty fuzzy values.
+        """
         new_var = FuzzyVariable(self.name, self.min_val, self.max_val)
         new_var._membership_functions = self._membership_functions.copy()
+        new_var._fuzzy_values = {category: FuzzyValue() for category in self._membership_functions}
         return new_var
 
     def fuzzify(self, crisp_value: float | np.ndarray) -> "FuzzyVariable":
+        """
+        Transform a crisp value into a fuzzy set using the defined membership functions.
+        """
         if len(self._membership_functions) == 0:
             raise ValueError("No membership functions defined.")
 
@@ -86,8 +94,6 @@ class FuzzyVariable:
         return new_var
 
     def is_(self, category: str) -> "FuzzyValue":
-        if len(self._fuzzy_values) == 0:
-            raise ValueError("No fuzzy values set. Call .fuzzify() first.")
         if category not in self._fuzzy_values:
             raise ValueError(f"Category '{category}' not defined for variable '{self.name}'.")
         return self._fuzzy_values[category]
@@ -95,17 +101,10 @@ class FuzzyVariable:
     def is_not(self, category: str) -> "FuzzyValue":
         return ~self.is_(category)
 
-    def get_fuzzy_set(self) -> dict[str, FuzzyValue]:
-        if len(self._fuzzy_values) == 0:
-            raise ValueError("No fuzzy values set. Call .fuzzify() first.")
-        return self._fuzzy_values
-
-    def get_maximum_membership(self) -> str:
-        return max(self._fuzzy_values, key=lambda x: self._fuzzy_values[x].degree)  # type: ignore
-
     def add_membership_function(self, category: str, func: MembershipFunction) -> None:
         if category in self._membership_functions:
             raise ValueError(f"Membership function for '{category}' already defined.")
+        self._fuzzy_values[category] = FuzzyValue()
         self._membership_functions[category] = func
 
     def add_triangular_membership_function(
@@ -129,7 +128,7 @@ class FuzzyVariable:
 
 class FuzzyRule:
     name: str
-    description: str
+    explanation: str
 
     def __call__(self, **kwargs) -> tuple[str, FuzzyValue]:
         raise NotImplementedError
@@ -152,34 +151,35 @@ class FuzzyLogic:
         if missing:
             raise ValueError(f"Missing variable values in arguments: {missing}")
 
-    def fuzzify_inputs(self, **crisp_values: float) -> dict[str, FuzzyVariable]:
+    def run_rules(self, **crisp_values: float) -> FuzzyVariable:
+        """
+        Run all rules and return the max membership degree for each category as a FuzzyVariable.
+        """
         self._check_all_variables_provided(**crisp_values)
-        return {var.name: var.fuzzify(crisp_values[var.name]) for var in self.inputs}
+        inputs = {var.name: var.fuzzify(crisp_values[var.name]) for var in self.inputs}
+        result = self.output.clone()
+
+        # Execute each rule and keep the max membership degree for each category
+        for rule in self.rules:
+            category, fuzzy_value = rule(**inputs)
+            result[category] = result[category] | fuzzy_value
+
+        return result
 
     def predict(self, **crisp_values: float) -> float:
         """
         Use Mamdani inference and centroid deffuzification to predict the output value.
         """
-        inputs = self.fuzzify_inputs(**crisp_values)
+        results = self.run_rules(**crisp_values)
 
-        # Apply rules
-        results: dict[str, FuzzyValue] = {}
-        for rule in self.rules:
-            category, output_value = rule(**inputs)
-            if category not in self.output.categories:
-                raise ValueError(f"Category '{category}' not defined for output variable.")
-            results[category] = results.get(category, FuzzyValue()) | output_value
-
-        # Create result arrays for each output category
+        # Create fuzzy sets for all possible output values (universe)
         universe = np.linspace(self.output.min_val, self.output.max_val, 1000)
-        fuzzy_output = self.output.fuzzify(universe).get_fuzzy_set()
-        for category, value in results.items():
-            fuzzy_output[category] = fuzzy_output[category] & value
+        output = self.output.fuzzify(universe)
 
         # Aggregate results
         aggregation = FuzzyValue(np.zeros_like(universe))
-        for category, values in fuzzy_output.items():
-            aggregation = aggregation | values
+        for category in results:
+            aggregation = aggregation | (output[category] & results[category])
 
         # Defuzzify
         centroid = np.sum(universe * aggregation.degree) / np.sum(aggregation.degree)
@@ -189,12 +189,5 @@ class FuzzyLogic:
         """
         Use max membership degree to predict the output category.
         """
-        inputs = self.fuzzify_inputs(**crisp_values)
-
-        results: dict[str, float] = {}
-        for rule in self.rules:
-            category, output_value = rule(**inputs)
-            if output_value.degree > results.get(category, 0):
-                results[category] = output_value.degree
-
-        return max(results, key=results.get)  # type: ignore
+        results = self.run_rules(**crisp_values)
+        return max(results, key=lambda v: results[v].degree)  # type: ignore
