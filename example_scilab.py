@@ -1,6 +1,6 @@
 import numpy as np
-import skfuzzy as fuzz
-import skfuzzy.control as ctrl
+import skfuzzy as fuzz  # type: ignore
+import skfuzzy.control as ctrl  # type: ignore
 
 
 # Categories
