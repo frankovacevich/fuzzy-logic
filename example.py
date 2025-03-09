@@ -36,31 +36,31 @@ class TipPercentageCalculator:
     def _rule1(self, service_level: FuzzyVariable, food_quality: FuzzyVariable) -> FuzzyTuple:
         result = service_level.is_(POOR)
         if result.degree > 0.5:
-            self._explanation += " - Service level is poor.\n"
+            self._explanation += " - The service level is poor.\n"
         return CHEAP, result
 
     def _rule2(self, service_level: FuzzyVariable, food_quality: FuzzyVariable) -> FuzzyTuple:
         result = food_quality.is_(BAD)
         if result.degree > 0.5:
-            self._explanation += " - Food quality is bad.\n"
+            self._explanation += " - The food quality is bad.\n"
         return CHEAP, result
 
     def _rule3(self, service_level: FuzzyVariable, food_quality: FuzzyVariable) -> FuzzyTuple:
         result = service_level.is_(GOOD)
         if result.degree > 0.5:
-            self._explanation += " - Service level is good.\n"
+            self._explanation += " - The service level is good.\n"
         return AVERAGE, result
 
     def _rule4(self, service_level: FuzzyVariable, food_quality: FuzzyVariable) -> FuzzyTuple:
         result = service_level.is_(EXCELLENT)
         if result.degree > 0.5:
-            self._explanation += " - Service level is excellent.\n"
+            self._explanation += " - The service level is excellent.\n"
         return GENEROUS, result
 
     def _rule5(self, service_level: FuzzyVariable, food_quality: FuzzyVariable) -> FuzzyTuple:
         result = food_quality.is_(DELICIOUS)
         if result.degree > 0.5:
-            self._explanation += " - Food quality is delicious.\n"
+            self._explanation += " - The food quality is delicious.\n"
         return GENEROUS, result
 
     def __init__(self) -> None:
