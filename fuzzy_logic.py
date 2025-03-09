@@ -95,17 +95,29 @@ class FuzzyVariable:
         return new_var
 
     def is_(self, category: str) -> "FuzzyValue":
+        """
+        Return the degree of membership for a category.
+        """
         if category not in self._fuzzy_values:
             raise ValueError(f"Category '{category}' not defined for variable '{self.name}'.")
         return self._fuzzy_values[category]
 
     def is_not(self, category: str) -> "FuzzyValue":
+        """
+        Return the degree of non-membership for a category.
+        """
         return ~self.is_(category)
 
     def get_max_membership_category(self) -> str:
+        """
+        Return the category with the highest membership degree
+        """
         return max(self._fuzzy_values, key=lambda v: self._fuzzy_values[v].degree)  # type: ignore
 
     def add_membership_function(self, category: str, func: MembershipFunction) -> None:
+        """
+        Add a membership function to the variable.
+        """
         if category in self._membership_functions:
             raise ValueError(f"Membership function for '{category}' already defined.")
         self._fuzzy_values[category] = FuzzyValue()
@@ -118,6 +130,17 @@ class FuzzyVariable:
         b: float,
         c: float,
     ) -> None:
+        """
+        Add a triangular membership function to the variable.
+          ▲
+        1-│          ^                  
+          │         / \                   
+          │        /   \                 
+          │       /     \                 
+        0-└──────|───|───|───────────────────►
+                 a   b   c
+        """
+
         def function(x: float | np.ndarray) -> FuzzyValue:
             x = np.atleast_1d(x)
             result = np.zeros_like(x)
